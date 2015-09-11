@@ -26,7 +26,7 @@ static unsigned long ** get_sys_call_table(void)
 	return NULL;
 }
 
-static int hijack_init(void)
+static int get_sct_init(void)
 {
 	printk(KERN_INFO "Entering hijack module..\n");
 	sys_call_table = get_sys_call_table();
@@ -40,11 +40,11 @@ static int hijack_init(void)
 	return 0;
 }
 
-static void hijack_exit(void)
+static void get_sct_exit(void)
 {
 	printk(KERN_INFO "Exiting hijack module..\n");
 }
 
 // Special kernel macros to indicate init and exit roles
-module_init(hijack_init);
-module_exit(hijack_exit);
+module_init(get_sct_init);
+module_exit(get_sct_exit);
