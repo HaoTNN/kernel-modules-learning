@@ -4,6 +4,9 @@
 #include <linux/syscalls.h>
 #include <asm/current.h>
 
+// Special kernel macro to indicate license
+MODULE_LICENSE("Dual BSD/GPL");
+
 #define START_MEM PAGE_OFFSET // Where kernel memory is defined to start at
 #define END_MEM ULLONG_MAX // Ending point
 
@@ -13,8 +16,9 @@
 #define ENABLE_WRITE_PROT (write_cr0 (read_cr0() | 0x10000));
 
 unsigned long ** sys_call_table;
+static char * johncena = "/home/haoduh/Music/JohnCena.mp3";
 
-asmlinkage int (*original_open) (const char* pathname, int flags, mode_t mode);
+asmlinkage long (*original_open) (const char* pathname, int flags, mode_t mode);
 
 static unsigned long ** get_sys_call_table(void)
 {
@@ -31,10 +35,24 @@ static unsigned long ** get_sys_call_table(void)
 	return NULL;
 }
 
-asmlinkage int custom_open(const char* pathname, int flags, mode_t mode)
+// custom_open() will execute in place of open() if the file ext is .mp3
+// custom_open() will open the theme to John Cena.
+asmlinkage long custom_open(const char* pathname, int flags, mode_t mode)
 {
-	printk(KERN_INFO "sys_open called by \"%s\", PID: %i\n", current->comm, current->pid);
-	return (*original_open)(pathname, flags, mode);
+	if (strcmp(pathname + strlen(pathname) - 4, ".mp3"))
+	{
+		// Results don't match, use original open
+		return (*original_open)(pathname, flags, mode);
+	}
+
+	// It's an .mp3, play the theme to John Cena instead!
+	long fd;
+	mm_segment_t old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	fd = (*original_open)(johncena, flags, mode);
+	set_fs(old_fs);
+
+	return fd;
 }
 
 static int hijack_init(void)
