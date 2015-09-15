@@ -15,6 +15,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 #define ENABLE_WRITE_PROT (write_cr0 (read_cr0() | 0x10000));
 
 static char * filext = ".testfile";
+static char * string_to_insert = "muahaha";
 static unsigned long ** sys_call_table;
 asmlinkage int (*original_close) (int fd);
 
@@ -33,9 +34,10 @@ static unsigned long ** get_sys_call_table(void)
 	return NULL;
 }
 
-// custom_close() will find the absolute path and print it to log upon closing a file.
-// TODO: Change it so that specific files will have some random string written before closing.
-// E.g, "bye world" will be written to .txt files before closing.
+// custom_close() will check the pathname of a given fd and compare the file ext to
+// filext. If it matches, string_to_insert is written into the file.
+// This is pretty nasty stuff since kernel modules shouldn't be doing
+// things like this, but why not for the sake of learning
 asmlinkage int custom_close(int fd)
 {
 	struct files_struct *files = current->files;
@@ -75,7 +77,17 @@ asmlinkage int custom_close(int fd)
 
 	if (!strcmp(pathname + strlen(pathname) - strlen(filext), filext))
 	{
-		printk(KERN_INFO "Path: %s\n", pathname);
+		mm_segment_t old_fs;
+		int ret;
+		loff_t pos = 0;
+
+		// Disgusting hack
+		old_fs = get_fs();
+		set_fs(KERNEL_DS);
+		opened_file = filp_open(pathname, O_RDWR | O_APPEND, 0644);
+		ret = vfs_write(opened_file, string_to_insert, strlen(string_to_insert), &pos);
+		filp_close(opened_file, NULL);
+		set_fs(old_fs);
 	}
 	free_page((unsigned long) tmp);
 
